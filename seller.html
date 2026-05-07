@@ -215,7 +215,7 @@
         document.getElementById('room-token').textContent = `Token #${token} in this room`;
     }
 
-    function submitItem() {
+    async function submitItem() {
         const name  = document.getElementById('item-name').value.trim();
         const price = Number(document.getElementById('item-price').value);
         const cat   = document.getElementById('item-category').value;
@@ -240,7 +240,7 @@
             listedAt: Date.now()
         };
 
-        State.addItem(item);
+        await State.addItem(item);
         showToast('Item Listed!', `<b>${name}</b> added to Room ${room} as Token #${token}`);
         renderMyItems();
 
@@ -277,7 +277,9 @@
         }).join('');
     }
 
-    renderMyItems();
+    State.loadItems().then(() => {
+        renderMyItems();
+    });
 </script>
 </body>
 </html>

@@ -118,7 +118,7 @@
     `;
     document.title = `OpenBid — ${roomData.label}`;
 
-    function renderRoomItems() {
+    async function renderRoomItems() {
         const items = State.getRoomItems(roomId).sort((a,b)=> a.token - b.token);
         const user = State.currentUser;
         const container = document.getElementById('room-items');
@@ -133,18 +133,22 @@
             return;
         }
 
-        container.innerHTML = items.map(i => {
-            const notified = State.isNotified(i.id, user.username);
-            const topBid   = State.topBid(i.id);
-            const dispPrice = topBid ? topBid.amount : i.basePrice;
-            return `
+        let html = '';
+        for (const i of items) {
+            const notified = await State.isNotified(i.id, user.username);
+            
+            // Top bid logic was synchronous but we will fetch from history later if needed. 
+            // For now let's just use base price, since bids aren't loaded in State.items.
+            const dispPrice = i.basePrice; 
+            
+            html += `
             <div class="item-card">
                 <img src="${i.image}" alt="${i.name}" onerror="this.src='https://via.placeholder.com/240x150/141414/c5a059?text=Item'" onclick="goBid('${i.id}')">
                 <div class="card-body">
                     <span class="c-token-badge">Token #${i.token}</span>
                     <div class="c-name">${i.name}</div>
                     <div class="c-price">₹${Number(dispPrice).toLocaleString()}
-                        ${topBid ? '<span style="font-size:0.7rem;color:var(--text-muted)">(current)</span>' : '<span style="font-size:0.7rem;color:var(--text-muted)">(base)</span>'}
+                        <span style="font-size:0.7rem;color:var(--text-muted)">(base)</span>
                     </div>
                     <div class="c-cat">${i.category} · ${i.seller}</div>
                     <button class="notify-btn ${notified?'active':''}" onclick="toggleNotify('${i.id}',this)">
@@ -153,13 +157,15 @@
                     <button class="bid-btn" onclick="goBid('${i.id}')">BID NOW</button>
                 </div>
             </div>`;
-        }).join('');
+        }
+        container.innerHTML = html;
     }
 
-    function toggleNotify(itemId, btn) {
+    async function toggleNotify(itemId, btn) {
         const user = State.currentUser.username;
-        if (State.isNotified(itemId, user)) return;
-        State.addNotify(itemId, user);
+        const isNotified = await State.isNotified(itemId, user);
+        if (isNotified) return;
+        await State.addNotify(itemId, user);
         btn.textContent = '🔔 Notify Me — ON';
         btn.classList.add('active');
         showToast('Notification Set', 'You will be notified when this item is next up!');
@@ -169,7 +175,7 @@
         window.location.href = `bid.html?item=${itemId}`;
     }
 
-    renderRoomItems();
+    State.loadItems().then(() => renderRoomItems());
 </script>
 </body>
 </html>

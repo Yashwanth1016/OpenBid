@@ -5,14 +5,17 @@
 // ─── State ──────────────────────────────────────────────────
 const State = {
     currentUser: JSON.parse(sessionStorage.getItem('ob_user') || 'null'),
-    items: JSON.parse(localStorage.getItem('ob_items') || '[]'),
-    bids: JSON.parse(localStorage.getItem('ob_bids') || '{}'),
-    notifyList: JSON.parse(localStorage.getItem('ob_notify') || '{}'),
+    items: [],
 
-    save() {
-        localStorage.setItem('ob_items', JSON.stringify(this.items));
-        localStorage.setItem('ob_bids', JSON.stringify(this.bids));
-        localStorage.setItem('ob_notify', JSON.stringify(this.notifyList));
+    async loadItems() {
+        try {
+            const res = await fetch('/api/items');
+            const data = await res.json();
+            this.items = data.items || [];
+        } catch (e) {
+            console.error("Error loading items:", e);
+        }
+        return this.items;
     },
 
     setUser(user) {
@@ -29,32 +32,19 @@ const State = {
         return this.items.find(i => i.id === id);
     },
 
-    addItem(item) {
-        this.items.push(item);
-        this.bids[item.id] = [];
-        this.save();
-    },
-
-    getBids(itemId) {
-        return this.bids[itemId] || [];
-    },
-
-    placeBid(itemId, amount, bidder) {
-        if (!this.bids[itemId]) this.bids[itemId] = [];
-        this.bids[itemId].push({ amount, bidder, time: Date.now() });
-        this.save();
-        return this.bids[itemId];
-    },
-
-    topBid(itemId) {
-        const b = this.getBids(itemId);
-        if (!b.length) return null;
-        return b.reduce((max, cur) => cur.amount > max.amount ? cur : max, b[0]);
-    },
-
-    secondTopBid(itemId) {
-        const b = [...this.getBids(itemId)].sort((a,b)=> b.amount - a.amount);
-        return b[1] || null;
+    async addItem(item) {
+        try {
+            const res = await fetch('/api/items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item)
+            });
+            const data = await res.json();
+            this.items.push(data.item || item);
+            return data;
+        } catch (e) {
+            console.error("Error adding item:", e);
+        }
     },
 
     getRoomItems(room) {
@@ -75,37 +65,35 @@ const State = {
         return roomItems.length + 1;
     },
 
-    addNotify(itemId, user) {
-        if (!this.notifyList[itemId]) this.notifyList[itemId] = [];
-        if (!this.notifyList[itemId].includes(user)) {
-            this.notifyList[itemId].push(user);
+    async addNotify(itemId, user) {
+        try {
+            await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itemId, user })
+            });
+        } catch (e) {
+            console.error("Error adding notification", e);
         }
-        this.save();
     },
 
-    isNotified(itemId, user) {
-        return (this.notifyList[itemId] || []).includes(user);
+    async isNotified(itemId, user) {
+        try {
+            const res = await fetch('/api/notify/' + itemId);
+            const data = await res.json();
+            return data.users.includes(user);
+        } catch (e) {
+            return false;
+        }
     },
 
-    markSold(itemId) {
-        const item = this.getItem(itemId);
-        if (item) {
-            item.status = 'sold';
-            this.save();
-            // Notify next item in room
-            const roomItems = this.items
-                .filter(i => i.room === item.room && i.status !== 'sold')
-                .sort((a,b) => a.token - b.token);
-            if (roomItems.length) {
-                const next = roomItems[0];
-                const notifyUsers = this.notifyList[next.id] || [];
-                notifyUsers.forEach(u => {
-                    // Store pending notification
-                    const pending = JSON.parse(localStorage.getItem('ob_pending_notif') || '[]');
-                    pending.push({ user: u, itemId: next.id, itemName: next.name, time: Date.now() });
-                    localStorage.setItem('ob_pending_notif', JSON.stringify(pending));
-                });
-            }
+    async markSold(itemId) {
+        try {
+            await fetch('/api/items/' + itemId + '/sold', { method: 'POST' });
+            const item = this.getItem(itemId);
+            if (item) item.status = 'sold';
+        } catch (e) {
+            console.error("Error marking sold", e);
         }
     }
 };
@@ -125,19 +113,9 @@ function showToast(title, msg, duration = 4000) {
     setTimeout(() => toast.remove(), duration);
 }
 
-// Check pending notifications for current user
 function checkPendingNotifications() {
-    if (!State.currentUser) return;
-    const pending = JSON.parse(localStorage.getItem('ob_pending_notif') || '[]');
-    const remaining = [];
-    pending.forEach(n => {
-        if (n.user === State.currentUser.username) {
-            showToast('Next Up!', `<b>${n.itemName}</b> is next to be auctioned!`);
-        } else {
-            remaining.push(n);
-        }
-    });
-    localStorage.setItem('ob_pending_notif', JSON.stringify(remaining));
+    // Omitting client-side pending notifications for simplicity 
+    // as state is now in backend.
 }
 
 // ─── Sidebar ─────────────────────────────────────────────────

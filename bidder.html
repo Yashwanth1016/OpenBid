@@ -182,7 +182,7 @@
         if (search) items = items.filter(i => i.name.toLowerCase().includes(search) || i.description.toLowerCase().includes(search));
 
         if (sortMode) {
-            fetch('http://localhost:5000/api/items/sort', {
+            fetch('/api/items/sort', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ items: items, sortMode: sortMode })
@@ -203,23 +203,23 @@
         }
     }
 
-    function renderGrid(itemsToRender, user) {
+    async function renderGrid(itemsToRender, user) {
         const grid = document.getElementById('all-items');
         if (!itemsToRender.length) {
             grid.innerHTML = '<p style="color:var(--text-muted);font-family:Arial,sans-serif;">No items found.</p>';
             return;
         }
-        grid.innerHTML = itemsToRender.map(i => {
-            const notified = State.isNotified(i.id, user.username);
-            const topBid   = State.topBid(i.id);
-            const dispPrice = topBid ? topBid.amount : i.basePrice;
-            return `
+        let html = '';
+        for (const i of itemsToRender) {
+            const notified = await State.isNotified(i.id, user.username);
+            const dispPrice = i.basePrice; // Simplified bid state
+            html += `
             <div class="item-card">
                 <img src="${i.image}" alt="${i.name}" onerror="this.src='https://via.placeholder.com/220x140/141414/c5a059?text=Item'" onclick="goBid('${i.id}')">
                 <div class="card-body">
                     <div class="c-cat">${i.category} &nbsp;·&nbsp; Room ${i.room}</div>
                     <div class="c-name">${i.name}</div>
-                    <div class="c-price">₹${Number(dispPrice).toLocaleString()} ${topBid ? '<span style="font-size:0.7rem;color:var(--text-muted)">(current bid)</span>' : '<span style="font-size:0.7rem;color:var(--text-muted)">(base)</span>'}</div>
+                    <div class="c-price">₹${Number(dispPrice).toLocaleString()} <span style="font-size:0.7rem;color:var(--text-muted)">(base)</span></div>
                     <div class="c-token">Token #${i.token}</div>
                     <button class="notify-btn ${notified?'active':''}" onclick="toggleNotify('${i.id}',this)">
                         ${notified ? '🔔 Notified' : '🔕 Notify Me'}
@@ -227,13 +227,15 @@
                     <button class="bid-btn" onclick="goBid('${i.id}')">BID NOW</button>
                 </div>
             </div>`;
-        }).join('');
+        }
+        grid.innerHTML = html;
     }
 
-    function toggleNotify(itemId, btn) {
+    async function toggleNotify(itemId, btn) {
         const user = State.currentUser.username;
-        if (State.isNotified(itemId, user)) return;
-        State.addNotify(itemId, user);
+        const isNotified = await State.isNotified(itemId, user);
+        if (isNotified) return;
+        await State.addNotify(itemId, user);
         btn.textContent = '🔔 Notified';
         btn.classList.add('active');
         showToast('Notification Set', 'You will be notified when this item is next up!');
@@ -243,8 +245,10 @@
         window.location.href = `bid.html?item=${itemId}`;
     }
 
-    renderRooms();
-    renderItems();
+    State.loadItems().then(() => {
+        renderRooms();
+        renderItems();
+    });
 </script>
 </body>
 </html>

@@ -228,7 +228,7 @@
         if (!agreed) { alert('Please agree to the Terms & Conditions to continue.'); return; }
         if (!user || !pass) { alert('Please fill in all fields.'); return; }
         
-        fetch('http://localhost:5000/api/login', {
+        fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: user, password: pass })
@@ -264,7 +264,7 @@
         if (!agreed) { alert('Please agree to the Terms & Conditions to continue.'); return; }
         if (!name||!phone||!email||!user||!pass) { alert('Please fill in all fields.'); return; }
         
-        fetch('http://localhost:5000/api/register', {
+        fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: user, password: pass, fullName: name, email: email, phone: phone })
