@@ -212,14 +212,15 @@
         let html = '';
         for (const i of itemsToRender) {
             const notified = await State.isNotified(i.id, user.username);
-            const dispPrice = i.basePrice; // Simplified bid state
+            const dispPrice = i.currentPrice || i.basePrice;
+            const priceLabel = i.currentPrice ? '(current bid)' : '(base)';
             html += `
             <div class="item-card">
                 <img src="${i.image}" alt="${i.name}" onerror="this.src='https://via.placeholder.com/220x140/141414/c5a059?text=Item'" onclick="goBid('${i.id}')">
                 <div class="card-body">
                     <div class="c-cat">${i.category} &nbsp;·&nbsp; Room ${i.room}</div>
                     <div class="c-name">${i.name}</div>
-                    <div class="c-price">₹${Number(dispPrice).toLocaleString()} <span style="font-size:0.7rem;color:var(--text-muted)">(base)</span></div>
+                    <div class="c-price">₹${Number(dispPrice).toLocaleString()} <span style="font-size:0.7rem;color:var(--text-muted)">${priceLabel}</span></div>
                     <div class="c-token">Token #${i.token}</div>
                     <button class="notify-btn ${notified?'active':''}" onclick="toggleNotify('${i.id}',this)">
                         ${notified ? '🔔 Notified' : '🔕 Notify Me'}

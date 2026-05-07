@@ -137,9 +137,8 @@
         for (const i of items) {
             const notified = await State.isNotified(i.id, user.username);
             
-            // Top bid logic was synchronous but we will fetch from history later if needed. 
-            // For now let's just use base price, since bids aren't loaded in State.items.
-            const dispPrice = i.basePrice; 
+            const dispPrice = i.currentPrice || i.basePrice;
+            const priceLabel = i.currentPrice ? '(current bid)' : '(base)';
             
             html += `
             <div class="item-card">
@@ -148,7 +147,7 @@
                     <span class="c-token-badge">Token #${i.token}</span>
                     <div class="c-name">${i.name}</div>
                     <div class="c-price">₹${Number(dispPrice).toLocaleString()}
-                        <span style="font-size:0.7rem;color:var(--text-muted)">(base)</span>
+                        <span style="font-size:0.7rem;color:var(--text-muted)">${priceLabel}</span>
                     </div>
                     <div class="c-cat">${i.category} · ${i.seller}</div>
                     <button class="notify-btn ${notified?'active':''}" onclick="toggleNotify('${i.id}',this)">

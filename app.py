@@ -45,6 +45,7 @@ class Item(db.Model):
     description = db.Column(db.Text)
     status = db.Column(db.String(50), default="active") # active or sold
     created_at = db.Column(db.Float, default=lambda: time.time() * 1000)
+    last_activity_time = db.Column(db.Float, default=lambda: time.time() * 1000)
 
 class Bid(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -71,6 +72,18 @@ with app.app_context():
     
     try:
         db.session.execute(db.text('ALTER TABLE item ADD COLUMN description TEXT'))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    try:
+        db.session.execute(db.text('ALTER TABLE item ADD COLUMN last_activity_time FLOAT'))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        
+    try:
+        db.session.execute(db.text(f'UPDATE item SET last_activity_time = {time.time() * 1000} WHERE last_activity_time IS NULL'))
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -164,10 +177,13 @@ def handle_items():
         items = Item.query.all()
         result = []
         for item in items:
+            top_bid = Bid.query.filter_by(item_id=item.id).order_by(Bid.amount.desc()).first()
+            
             result.append({
                 "id": item.id,
                 "name": item.name,
                 "basePrice": item.base_price,
+                "currentPrice": top_bid.amount if top_bid else None,
                 "seller": item.seller,
                 "room": item.room,
                 "token": item.token,
@@ -216,15 +232,18 @@ def place_bid():
     item_id = data.get('itemId')
     new_amount = float(data.get('amount'))
     
+    item = Item.query.get(item_id)
+    if item:
+        if item.seller == data.get('bidder'):
+            return jsonify({"error": "You cannot bid on your own item"}), 400
+        if new_amount < item.base_price:
+            return jsonify({"error": f"Bid must be at least ₹{int(item.base_price)}"}), 400
+
     # Check if bid is valid (must be higher than current top bid)
     top_bid = Bid.query.filter_by(item_id=item_id).order_by(Bid.amount.desc()).first()
     if top_bid and new_amount <= top_bid.amount:
         return jsonify({"error": f"Bid must be higher than ₹{int(top_bid.amount)}"}), 400
         
-    item = Item.query.get(item_id)
-    if item and new_amount < item.base_price:
-        return jsonify({"error": f"Bid must be at least ₹{int(item.base_price)}"}), 400
-
     new_bid = Bid(
         item_id=item_id,
         amount=new_amount,
@@ -232,6 +251,8 @@ def place_bid():
         status="queued"
     )
     db.session.add(new_bid)
+    if item:
+        item.last_activity_time = time.time() * 1000
     db.session.commit()
     
     bid_item = {
@@ -262,7 +283,19 @@ def get_history():
             "time": bid.time,
             "status": bid.status
         })
-    return jsonify({"history": history}), 200
+        
+    server_time = time.time() * 1000
+    last_activity_time = server_time
+    if item_id:
+        item = Item.query.get(item_id)
+        if item and item.last_activity_time:
+            last_activity_time = item.last_activity_time
+
+    return jsonify({
+        "serverTime": server_time,
+        "lastActivityTime": last_activity_time,
+        "history": history
+    }), 200
 
 @app.route('/api/bids/queue', methods=['GET'])
 def get_queue():

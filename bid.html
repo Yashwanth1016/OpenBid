@@ -204,6 +204,8 @@
     /* ─────────────────────────────── */
     let inactivityTimer = null;
     let inactivitySeconds = 30;
+    let lastActivityTime = Date.now();
+    let serverTimeOffset = 0;
     let paymentTimer = null;
     let paymentSeconds = 120; // 2 min to pay
     let isSold = false;
@@ -231,6 +233,10 @@
             .then(res => res.json())
             .then(data => {
                 currentBids = data.history || [];
+                if (data.serverTime) {
+                    serverTimeOffset = Date.now() - data.serverTime;
+                    lastActivityTime = data.lastActivityTime || data.serverTime;
+                }
                 renderBidPage();
                 resetInactivityTimer();
                 setInterval(() => {
@@ -238,6 +244,10 @@
                         .then(res => res.json())
                         .then(d => {
                             currentBids = d.history || [];
+                            if (d.serverTime) {
+                                serverTimeOffset = Date.now() - d.serverTime;
+                                lastActivityTime = d.lastActivityTime || d.serverTime;
+                            }
                             updateBidCount();
                             updateChart();
                             renderHistory();
@@ -425,6 +435,7 @@
             document.getElementById('current-price-display').innerHTML = '<span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹' + Number(amount).toLocaleString();
             document.getElementById('custom-bid').value = '';
 
+            lastActivityTime = Date.now() - serverTimeOffset; // instantly update local timer
             renderQuickBids();
             renderHistory();
             updateBidCount();
@@ -471,13 +482,17 @@
     /* ── Inactivity Timer ── */
     function resetInactivityTimer() {
         clearInterval(inactivityTimer);
-        inactivitySeconds = 30;
-        updateTimerDisplay();
+        tickInactivity();
         inactivityTimer = setInterval(tickInactivity, 1000);
     }
 
     function tickInactivity() {
-        inactivitySeconds--;
+        const nowServer = Date.now() - serverTimeOffset;
+        inactivitySeconds = 30 - Math.floor((nowServer - lastActivityTime) / 1000);
+        
+        // Don't let it show negatives
+        if (inactivitySeconds < 0) inactivitySeconds = 0;
+        
         updateTimerDisplay();
         if (inactivitySeconds <= 0) {
             clearInterval(inactivityTimer);
