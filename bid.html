@@ -228,6 +228,13 @@
         return top ? top.amount : item.basePrice;
     }
 
+    function updateCurrentPrice() {
+        const el = document.getElementById('current-price-display');
+        if (el) {
+            el.innerHTML = '<span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹' + Number(currentBidAmount()).toLocaleString();
+        }
+    }
+
     function initBidPage() {
         fetch('/api/bids/history?itemId=' + item.id)
             .then(res => res.json())
@@ -249,6 +256,7 @@
                                 lastActivityTime = d.lastActivityTime || d.serverTime;
                             }
                             updateBidCount();
+                            updateCurrentPrice();
                             updateChart();
                             renderHistory();
                             renderQuickBids();
@@ -444,7 +452,7 @@
             });
             bidCount++;
 
-            document.getElementById('current-price-display').innerHTML = '<span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹' + Number(amount).toLocaleString();
+            updateCurrentPrice();
             document.getElementById('custom-bid').value = '';
 
             lastActivityTime = Date.now() - serverTimeOffset; // instantly update local timer
@@ -499,6 +507,19 @@
     }
 
     function tickInactivity() {
+        if (currentBids.length === 0) {
+            const el = document.getElementById('inactivity-timer');
+            if (el) {
+                el.textContent = "WAITING";
+                el.className = "timer-value ok";
+                el.style.fontSize = "1rem";
+            }
+            return;
+        }
+
+        const el = document.getElementById('inactivity-timer');
+        if (el) el.style.fontSize = "1.8rem";
+
         const nowServer = Date.now() - serverTimeOffset;
         inactivitySeconds = 30 - Math.floor((nowServer - lastActivityTime) / 1000);
         
