@@ -209,6 +209,7 @@
     let isSold = false;
     let bidCount = 0;
     let chartPoints = [];
+    let currentBids = [];
 
     State.loadItems().then(() => {
         item = State.getItem(itemId);
@@ -221,21 +222,37 @@
     });
 
     function currentBidAmount() {
-        const top = State.topBid(item.id);
+        const top = currentBids[0];
         return top ? top.amount : item.basePrice;
     }
 
-
-
     function initBidPage() {
-        renderBidPage();
-        resetInactivityTimer();
-        setInterval(updateChart, 3000);
+        fetch('/api/bids/history?itemId=' + item.id)
+            .then(res => res.json())
+            .then(data => {
+                currentBids = data.history || [];
+                renderBidPage();
+                resetInactivityTimer();
+                setInterval(() => {
+                    fetch('/api/bids/history?itemId=' + item.id)
+                        .then(res => res.json())
+                        .then(d => {
+                            currentBids = d.history || [];
+                            updateBidCount();
+                            updateChart();
+                            renderHistory();
+                        });
+                }, 3000);
+            })
+            .catch(err => {
+                console.error("Init fetch failed:", err);
+                renderBidPage();
+            });
     }
 
     function renderBidPage() {
         const roomData = ROOMS[item.room - 1];
-        const top = State.topBid(item.id);
+        const top = currentBids[0];
         const dispPrice = top ? top.amount : item.basePrice;
 
         document.getElementById('bid-layout').innerHTML = `
@@ -389,7 +406,13 @@
         })
         .then(res => res.json())
         .then(data => {
-            State.placeBid(item.id, amount, user);
+            currentBids.unshift({
+                id: data.bid.id,
+                itemId: item.id,
+                amount: amount,
+                bidder: user,
+                time: data.bid.time
+            });
             bidCount++;
 
             document.getElementById('current-price-display').innerHTML = '<span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹' + Number(amount).toLocaleString();
@@ -406,7 +429,7 @@
         .catch(err => {
             console.error("Bid submission failed:", err);
             // Fallback for local
-            State.placeBid(item.id, amount, user);
+            currentBids.unshift({ itemId: item.id, amount: amount, bidder: user, time: Date.now() });
             bidCount++;
             document.getElementById('current-price-display').innerHTML = '<span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹' + Number(amount).toLocaleString();
             document.getElementById('custom-bid').value = '';
@@ -420,57 +443,30 @@
     }
 
     function renderHistory() {
-        fetch('/api/bids/history?itemId=' + item.id)
-            .then(res => res.json())
-            .then(data => {
-                const bids = data.history || [];
-                const el = document.getElementById('bid-history');
-                if (!el) return;
-                if (!bids.length) {
-                    el.innerHTML = '<p style="color:var(--text-muted);font-family:Arial,sans-serif;font-size:0.85rem;">No bids yet. Be the first!</p>';
-                    return;
-                }
-                el.innerHTML = bids.map((b, i) => {
-                    const t = new Date(b.time);
-                    const timeStr = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0') + ':' + t.getSeconds().toString().padStart(2,'0');
-                    return `
-                    <div class="history-item">
-                        <span class="h-bidder">👤 ${b.bidder}</span>
-                        <span class="h-amount">₹${Number(b.amount).toLocaleString()}</span>
-                        <span class="h-time">${timeStr}</span>
-                        ${i===0 ? '<span class="h-top-badge">TOP</span>' : ''}
-                    </div>`;
-                }).join('');
-            })
-            .catch(err => {
-                console.error("History fetch failed:", err);
-                // Fallback local render
-                const localBids = [...State.getBids(item.id)].reverse();
-                const el = document.getElementById('bid-history');
-                if (!el) return;
-                if (!localBids.length) {
-                    el.innerHTML = '<p style="color:var(--text-muted);font-family:Arial,sans-serif;font-size:0.85rem;">No bids yet. Be the first!</p>';
-                    return;
-                }
-                el.innerHTML = localBids.map((b, i) => {
-                    const t = new Date(b.time);
-                    const timeStr = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0') + ':' + t.getSeconds().toString().padStart(2,'0');
-                    return `
-                    <div class="history-item">
-                        <span class="h-bidder">👤 ${b.bidder}</span>
-                        <span class="h-amount">₹${Number(b.amount).toLocaleString()}</span>
-                        <span class="h-time">${timeStr}</span>
-                        ${i===0 ? '<span class="h-top-badge">TOP</span>' : ''}
-                    </div>`;
-                }).join('');
-            });
+        const bids = currentBids;
+        const el = document.getElementById('bid-history');
+        if (!el) return;
+        if (!bids.length) {
+            el.innerHTML = '<p style="color:var(--text-muted);font-family:Arial,sans-serif;font-size:0.85rem;">No bids yet. Be the first!</p>';
+            return;
+        }
+        el.innerHTML = bids.map((b, i) => {
+            const t = new Date(b.time);
+            const timeStr = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0') + ':' + t.getSeconds().toString().padStart(2,'0');
+            return `
+            <div class="history-item">
+                <span class="h-bidder">👤 ${b.bidder}</span>
+                <span class="h-amount">₹${Number(b.amount).toLocaleString()}</span>
+                <span class="h-time">${timeStr}</span>
+                ${i===0 ? '<span class="h-top-badge">TOP</span>' : ''}
+            </div>`;
+        }).join('');
     }
 
     function updateBidCount() {
-        const bids = State.getBids(item.id);
         const el = document.getElementById('bid-count-label');
-        if (el) el.textContent = bids.length;
-        const top = State.topBid(item.id);
+        if (el) el.textContent = currentBids.length;
+        const top = currentBids[0];
         const leaderEl = document.getElementById('leader-label');
         if (leaderEl) leaderEl.textContent = top ? top.bidder : '—';
     }
@@ -504,8 +500,8 @@
     function triggerSold() {
         if (isSold) return;
         isSold = true;
-        const top = State.topBid(item.id);
-        const second = State.secondTopBid(item.id);
+        const top = currentBids[0];
+        const second = currentBids[1];
         const me = State.currentUser.username;
 
         const bidPanelEl = document.getElementById('bid-panel');
@@ -562,7 +558,7 @@
     }
 
     function showSoldState() {
-        const top = State.topBid(item.id);
+        const top = currentBids[0];
         finalSold(top ? `Sold to <b>${top.bidder}</b> at ₹${Number(top.amount).toLocaleString()}.` : 'Auction closed with no bids.');
     }
 
@@ -584,8 +580,8 @@
         const canvas = document.getElementById('bid-chart');
         if (!canvas) return;
 
-        const bids = State.getBids(item.id);
-        const allPoints = [{ price: item.basePrice, t: item.listedAt }, ...bids.map(b=>({price:b.amount, t:b.time}))];
+        const bids = [...currentBids].reverse();
+        const allPoints = [{ price: item.basePrice, t: item.listedAt || Date.now() }, ...bids.map(b=>({price:b.amount, t:b.time}))];
         if (allPoints.length < 2 && !bids.length) {
             // Draw empty state
             const ctx = canvas.getContext('2d');
