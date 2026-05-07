@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenBid — Bidding</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background:var(--dark-bg); }
+
+        .bid-layout {
+            display:grid;
+            grid-template-columns:340px 1fr;
+            gap:22px;
+            max-width:1160px;
+            margin:0 auto;
+            padding:26px 18px 40px;
+        }
+
+        /* ── Left Panel: Item Info ── */
+        .item-panel {
+            display:flex; flex-direction:column; gap:16px;
+        }
+        .item-image-box {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px; overflow:hidden;
+        }
+        .item-image-box img { width:100%; max-height:220px; object-fit:contain; background:#111; }
+        .item-info {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px; padding:18px;
+        }
+        .item-info .category-tag {
+            display:inline-block;
+            background:var(--input-bg); color:var(--gold-primary);
+            font-size:0.72rem; padding:3px 10px; border-radius:3px;
+            font-family:Arial,sans-serif; margin-bottom:10px; letter-spacing:0.5px;
+        }
+        .item-info h2 { font-size:1.5rem; margin-bottom:8px; }
+        .item-info .base-price { color:var(--text-dim); font-family:Arial,sans-serif; font-size:0.88rem; margin-bottom:4px; }
+        .item-info .current-price {
+            font-size:2rem; color:var(--gold-primary); font-weight:bold;
+            margin-bottom:12px;
+        }
+        .item-info .description { color:var(--text-dim); font-family:Arial,sans-serif; font-size:0.88rem; line-height:1.6; }
+        .item-info .seller-info { color:var(--text-muted); font-family:Arial,sans-serif; font-size:0.78rem; margin-top:10px; }
+        .room-info-tag {
+            display:inline-block;
+            border:1px solid; padding:3px 10px;
+            font-size:0.72rem; border-radius:3px;
+            font-family:Arial,sans-serif; margin-top:8px;
+        }
+
+        /* ── Right Panel ── */
+        .right-panel { display:flex; flex-direction:column; gap:16px; }
+
+        /* Status Bar */
+        .status-bar {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px; padding:14px 18px;
+            display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+        }
+        .status-dot { width:10px; height:10px; border-radius:50%; background:var(--success); animation:pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+        .status-label { color:var(--text-dim); font-family:Arial,sans-serif; font-size:0.88rem; }
+        .status-label b { color:#fff; }
+
+        .timer-box {
+            margin-left:auto;
+            display:flex; flex-direction:column; align-items:center;
+        }
+        .timer-label { font-family:Arial,sans-serif; font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; }
+        .timer-value { font-size:1.8rem; font-weight:bold; font-family:'Courier New',monospace; }
+        .timer-value.warning { color:var(--danger); }
+        .timer-value.ok { color:var(--success); }
+
+        /* Bid Boxes */
+        .bid-panel {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px; padding:20px;
+        }
+        .bid-panel h3 { color:var(--gold-primary); font-size:1rem; letter-spacing:2px; margin-bottom:16px; }
+
+        .bid-methods { display:flex; flex-direction:column; gap:14px; }
+
+        /* Manual bid */
+        .manual-bid { display:flex; gap:10px; }
+        .manual-bid input {
+            flex:1; background:var(--input-bg);
+            border:1px solid var(--border); color:#fff;
+            padding:13px 14px; font-size:1rem;
+            font-family:Arial,sans-serif; border-radius:3px; outline:none;
+        }
+        .manual-bid input:focus { border-color:var(--gold-primary); }
+        .manual-bid button {
+            background:var(--gold-primary); border:none;
+            padding:13px 20px; font-weight:bold;
+            cursor:pointer; text-transform:uppercase; font-size:0.85rem;
+            transition:0.3s; white-space:nowrap; border-radius:3px;
+        }
+        .manual-bid button:hover { background:var(--gold-hover); }
+
+        /* Quick bid */
+        .quick-bids { display:flex; gap:10px; flex-wrap:wrap; }
+        .quick-bid-btn {
+            flex:1; min-width:120px;
+            background:var(--input-bg); border:1px solid var(--border);
+            color:#fff; padding:12px 10px;
+            cursor:pointer; font-family:Arial,sans-serif;
+            font-size:0.88rem; border-radius:3px;
+            transition:0.3s; text-align:center;
+        }
+        .quick-bid-btn:hover { border-color:var(--gold-primary); color:var(--gold-primary); }
+        .quick-bid-btn .qb-label { font-size:0.72rem; color:var(--text-muted); }
+        .quick-bid-btn .qb-amount { font-size:1rem; font-weight:bold; color:var(--gold-primary); margin-top:2px; }
+
+        /* Payment timer */
+        .payment-box {
+            background:#1a0a0a;
+            border:1px solid var(--danger);
+            border-radius:6px; padding:16px;
+            display:none;
+        }
+        .payment-box h4 { color:var(--danger); margin-bottom:8px; }
+        .payment-box p { font-family:Arial,sans-serif; font-size:0.88rem; color:var(--text-dim); margin-bottom:10px; }
+        .payment-timer { font-size:2rem; font-weight:bold; color:var(--danger); font-family:'Courier New',monospace; }
+        .pay-btn {
+            background:var(--success); border:none;
+            padding:12px 28px; font-weight:bold;
+            cursor:pointer; text-transform:uppercase;
+            letter-spacing:1px; margin-top:12px;
+            transition:0.3s; border-radius:3px;
+        }
+        .pay-btn:hover { opacity:0.85; }
+
+        /* SOLD overlay */
+        .sold-banner {
+            background:#0a1a0a; border:1px solid var(--success);
+            border-radius:6px; padding:20px; text-align:center;
+            display:none;
+        }
+        .sold-banner h3 { color:var(--success); font-size:1.4rem; margin-bottom:8px; }
+        .sold-banner p { font-family:Arial,sans-serif; font-size:0.9rem; color:var(--text-dim); }
+
+        /* Graph */
+        .graph-panel {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px; padding:18px;
+        }
+        .graph-panel h3 { color:var(--gold-primary); font-size:1rem; letter-spacing:2px; margin-bottom:14px; }
+        #bid-chart { width:100%; height:200px; }
+
+        /* History */
+        .history-panel {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px; padding:18px;
+            max-height:280px; overflow-y:auto;
+        }
+        .history-panel h3 { color:var(--gold-primary); font-size:1rem; letter-spacing:2px; margin-bottom:14px; }
+        .history-item {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:10px 0; border-bottom:1px solid var(--border);
+            font-family:Arial,sans-serif; font-size:0.85rem;
+        }
+        .history-item:last-child { border-bottom:none; }
+        .h-bidder { color:var(--text-dim); }
+        .h-amount { color:var(--gold-primary); font-weight:bold; }
+        .h-time { color:var(--text-muted); font-size:0.75rem; }
+        .h-top-badge { background:var(--gold-primary); color:#000; font-size:0.68rem; padding:2px 6px; border-radius:3px; font-weight:bold; }
+
+        @media(max-width:800px){
+            .bid-layout { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+
+<div class="page-wrapper">
+    <div class="bid-layout" id="bid-layout">
+        <!-- populated by JS -->
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="js/app.js"></script>
+<script>
+    if (!requireAuth()) {}
+    document.getElementById('nav-placeholder').innerHTML = renderTopNav();
+    checkPendingNotifications();
+
+    const params = new URLSearchParams(window.location.search);
+    const itemId = params.get('item');
+    const item = State.getItem(itemId);
+
+    /* ─────────────────────────────── */
+    let inactivityTimer = null;
+    let inactivitySeconds = 30;
+    let paymentTimer = null;
+    let paymentSeconds = 120; // 2 min to pay
+    let isSold = false;
+    let bidCount = 0;
+    let chartPoints = [];
+
+    if (!item) {
+        document.getElementById('bid-layout').innerHTML = '<p style="color:var(--danger);font-family:Arial,sans-serif;padding:40px;">Item not found. <a href="bidder.html" style="color:var(--gold-primary)">← Back to rooms</a></p>';
+    } else {
+        document.title = `OpenBid — ${item.name}`;
+        initBidPage();
+    }
+
+    function currentBidAmount() {
+        const top = State.topBid(item.id);
+        return top ? top.amount : item.basePrice;
+    }
+
+
+
+    function initBidPage() {
+        renderBidPage();
+        resetInactivityTimer();
+        setInterval(updateChart, 3000);
+    }
+
+    function renderBidPage() {
+        const roomData = ROOMS[item.room - 1];
+        const top = State.topBid(item.id);
+        const dispPrice = top ? top.amount : item.basePrice;
+
+        document.getElementById('bid-layout').innerHTML = `
+        <!-- LEFT -->
+        <div class="item-panel">
+            <div class="item-image-box">
+                <img src="${item.image}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/340x220/141414/c5a059?text=Item'">
+            </div>
+            <div class="item-info">
+                <span class="category-tag">${item.category}</span>
+                <h2>${item.name}</h2>
+                <div class="base-price">Base Price: ₹${Number(item.basePrice).toLocaleString()}</div>
+                <div class="current-price" id="current-price-display"><span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹${Number(dispPrice).toLocaleString()}</div>
+                <div class="description">${item.description}</div>
+                <div class="seller-info">Seller: ${item.seller} &nbsp;·&nbsp; Token #${item.token}</div>
+                <span class="room-info-tag" style="color:${roomData.color};border-color:${roomData.color}">${roomData.label}</span>
+            </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="right-panel">
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <div class="status-dot" id="status-dot"></div>
+                <div class="status-label">Status: <b id="status-text">LIVE</b></div>
+                <div class="status-label">Bids: <b id="bid-count-label">0</b></div>
+                <div class="status-label">Leader: <b id="leader-label">—</b></div>
+                <div class="timer-box">
+                    <div class="timer-label">Inactivity Timer</div>
+                    <div class="timer-value ok" id="inactivity-timer">0:30</div>
+                </div>
+            </div>
+
+            <!-- Bid Panel -->
+            <div class="bid-panel" id="bid-panel">
+                <h3>PLACE YOUR BID</h3>
+                <div class="bid-methods">
+                    <!-- Manual -->
+                    <div>
+                        <div style="font-family:Arial,sans-serif;font-size:0.8rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;">Custom Amount</div>
+                        <div class="manual-bid">
+                            <input type="number" id="custom-bid" placeholder="Enter amount (₹)" min="1">
+                            <button onclick="doManualBid()">BID</button>
+                        </div>
+                    </div>
+                    <!-- Quick Bids -->
+                    <div>
+                        <div style="font-family:Arial,sans-serif;font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;">Quick Bid Buttons</div>
+                        <div class="quick-bids" id="quick-bids-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Box -->
+            <div class="payment-box" id="payment-box">
+                <h4>🏆 YOU WON! Complete Payment</h4>
+                <p>You are the highest bidder. Complete payment within the time limit to secure this item.</p>
+                <div class="payment-timer" id="payment-timer-display">2:00</div>
+                <br>
+                <button class="pay-btn" onclick="completePay()">✅ PAY NOW — ₹<span id="pay-amount">0</span></button>
+            </div>
+
+            <!-- Sold Banner -->
+            <div class="sold-banner" id="sold-banner">
+                <h3>✅ AUCTION COMPLETE</h3>
+                <p id="sold-msg">This item has been sold.</p>
+                <br>
+                <button class="bid-btn" style="max-width:200px;margin:0 auto;" onclick="location.href='bidder.html'">← Browse More</button>
+            </div>
+
+            <!-- Chart -->
+            <div class="graph-panel">
+                <h3>LIVE BID GRAPH</h3>
+                <canvas id="bid-chart"></canvas>
+            </div>
+
+            <!-- History -->
+            <div class="history-panel">
+                <h3>BID HISTORY</h3>
+                <div id="bid-history"></div>
+            </div>
+        </div>`;
+
+        renderQuickBids();
+        renderHistory();
+        updateBidCount();
+        updateChart();
+
+        if (item.status === 'sold') showSoldState();
+    }
+
+    function renderQuickBids() {
+        const currentP = currentBidAmount();
+        fetch(`http://localhost:5000/api/bids/suggestions?itemId=${item.id}&currentPrice=${currentP}`)
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('quick-bids-container');
+                if (!container) return;
+                const options = data.options;
+                container.innerHTML = options.map(o => `
+                    <div class="quick-bid-btn" onclick="doQuickBid(${o.amount})">
+                        <div class="qb-label">${o.label}</div>
+                        <div class="qb-amount">₹${Number(o.amount).toLocaleString()}</div>
+                    </div>`).join('');
+            })
+            .catch(err => {
+                console.error("Failed to fetch suggestions:", err);
+                // Fallback to basic math if backend fails
+                const container = document.getElementById('quick-bids-container');
+                if (!container) return;
+                const assigned = Math.ceil(currentP * 1.05);
+                const options = [
+                    { label: 'Suggested', amount: assigned },
+                    { label: '+10%', amount: Math.ceil(currentP * 1.10) },
+                    { label: '+20%', amount: Math.ceil(currentP * 1.20) },
+                ];
+                container.innerHTML = options.map(o => `
+                    <div class="quick-bid-btn" onclick="doQuickBid(${o.amount})">
+                        <div class="qb-label">${o.label}</div>
+                        <div class="qb-amount">₹${Number(o.amount).toLocaleString()}</div>
+                    </div>`).join('');
+            });
+    }
+
+    function doManualBid() {
+        if (isSold) return;
+        const val = Number(document.getElementById('custom-bid').value);
+        const minBid = currentBidAmount() + 1;
+        if (!val || val < minBid) {
+            showToast('Invalid Bid', `Your bid must be above ₹${Number(currentBidAmount()).toLocaleString()}`);
+            return;
+        }
+        submitBid(val);
+    }
+
+    function doQuickBid(amount) {
+        if (isSold) return;
+        submitBid(amount);
+    }
+
+    function submitBid(amount) {
+        const user = State.currentUser.username;
+        
+        console.log(`Passing bid to backend: ₹${amount}`);
+        
+        fetch('http://localhost:5000/api/bid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId: item.id, amount: amount, bidder: user })
+        })
+        .then(res => res.json())
+        .then(data => {
+            State.placeBid(item.id, amount, user);
+            bidCount++;
+
+            document.getElementById('current-price-display').innerHTML = '<span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹' + Number(amount).toLocaleString();
+            document.getElementById('custom-bid').value = '';
+
+            renderQuickBids();
+            renderHistory();
+            updateBidCount();
+            resetInactivityTimer();
+            addChartPoint(amount);
+
+            showToast('Bid Placed!', `Your bid of <b>₹${Number(amount).toLocaleString()}</b> was placed.`);
+        })
+        .catch(err => {
+            console.error("Bid submission failed:", err);
+            // Fallback for local
+            State.placeBid(item.id, amount, user);
+            bidCount++;
+            document.getElementById('current-price-display').innerHTML = '<span style="font-size:1.1rem;color:var(--text-dim);font-weight:normal;">Current Bid:</span> ₹' + Number(amount).toLocaleString();
+            document.getElementById('custom-bid').value = '';
+            renderQuickBids();
+            renderHistory();
+            updateBidCount();
+            resetInactivityTimer();
+            addChartPoint(amount);
+            showToast('Bid Placed!', `Your bid of <b>₹${Number(amount).toLocaleString()}</b> was placed.`);
+        });
+    }
+
+    function renderHistory() {
+        fetch('http://localhost:5000/api/bids/history?itemId=' + item.id)
+            .then(res => res.json())
+            .then(data => {
+                const bids = data.history || [];
+                const el = document.getElementById('bid-history');
+                if (!el) return;
+                if (!bids.length) {
+                    el.innerHTML = '<p style="color:var(--text-muted);font-family:Arial,sans-serif;font-size:0.85rem;">No bids yet. Be the first!</p>';
+                    return;
+                }
+                el.innerHTML = bids.map((b, i) => {
+                    const t = new Date(b.time);
+                    const timeStr = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0') + ':' + t.getSeconds().toString().padStart(2,'0');
+                    return `
+                    <div class="history-item">
+                        <span class="h-bidder">👤 ${b.bidder}</span>
+                        <span class="h-amount">₹${Number(b.amount).toLocaleString()}</span>
+                        <span class="h-time">${timeStr}</span>
+                        ${i===0 ? '<span class="h-top-badge">TOP</span>' : ''}
+                    </div>`;
+                }).join('');
+            })
+            .catch(err => {
+                console.error("History fetch failed:", err);
+                // Fallback local render
+                const localBids = [...State.getBids(item.id)].reverse();
+                const el = document.getElementById('bid-history');
+                if (!el) return;
+                if (!localBids.length) {
+                    el.innerHTML = '<p style="color:var(--text-muted);font-family:Arial,sans-serif;font-size:0.85rem;">No bids yet. Be the first!</p>';
+                    return;
+                }
+                el.innerHTML = localBids.map((b, i) => {
+                    const t = new Date(b.time);
+                    const timeStr = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0') + ':' + t.getSeconds().toString().padStart(2,'0');
+                    return `
+                    <div class="history-item">
+                        <span class="h-bidder">👤 ${b.bidder}</span>
+                        <span class="h-amount">₹${Number(b.amount).toLocaleString()}</span>
+                        <span class="h-time">${timeStr}</span>
+                        ${i===0 ? '<span class="h-top-badge">TOP</span>' : ''}
+                    </div>`;
+                }).join('');
+            });
+    }
+
+    function updateBidCount() {
+        const bids = State.getBids(item.id);
+        const el = document.getElementById('bid-count-label');
+        if (el) el.textContent = bids.length;
+        const top = State.topBid(item.id);
+        const leaderEl = document.getElementById('leader-label');
+        if (leaderEl) leaderEl.textContent = top ? top.bidder : '—';
+    }
+
+    /* ── Inactivity Timer ── */
+    function resetInactivityTimer() {
+        clearInterval(inactivityTimer);
+        inactivitySeconds = 30;
+        updateTimerDisplay();
+        inactivityTimer = setInterval(tickInactivity, 1000);
+    }
+
+    function tickInactivity() {
+        inactivitySeconds--;
+        updateTimerDisplay();
+        if (inactivitySeconds <= 0) {
+            clearInterval(inactivityTimer);
+            triggerSold();
+        }
+    }
+
+    function updateTimerDisplay() {
+        const el = document.getElementById('inactivity-timer');
+        if (!el) return;
+        const s = inactivitySeconds;
+        el.textContent = '0:' + s.toString().padStart(2,'0');
+        el.className = 'timer-value ' + (s <= 10 ? 'warning' : 'ok');
+    }
+
+    /* ── Sold State ── */
+    function triggerSold() {
+        if (isSold) return;
+        isSold = true;
+        const top = State.topBid(item.id);
+        const second = State.secondTopBid(item.id);
+        const me = State.currentUser.username;
+
+        const bidPanelEl = document.getElementById('bid-panel');
+        if (bidPanelEl) bidPanelEl.style.display = 'none';
+        const dot = document.getElementById('status-dot');
+        if (dot) { dot.style.background = 'var(--danger)'; dot.style.animation = 'none'; }
+        const statusText = document.getElementById('status-text');
+        if (statusText) statusText.textContent = 'CLOSED';
+
+        if (top && top.bidder === me) {
+            // Show payment panel
+            const pb = document.getElementById('payment-box');
+            if (pb) pb.style.display = 'block';
+            const pa = document.getElementById('pay-amount');
+            if (pa) pa.textContent = Number(top.amount).toLocaleString();
+            showToast('🏆 You Won!', `You are the highest bidder at ₹${Number(top.amount).toLocaleString()}. Pay within 2 minutes!`);
+            startPaymentTimer(top, second);
+        } else {
+            // Show sold banner
+            showSoldState();
+        }
+    }
+
+    function startPaymentTimer(top, second) {
+        paymentSeconds = 120;
+        paymentTimer = setInterval(() => {
+            paymentSeconds--;
+            const el = document.getElementById('payment-timer-display');
+            if (el) {
+                const m = Math.floor(paymentSeconds/60);
+                const s = paymentSeconds % 60;
+                el.textContent = m + ':' + s.toString().padStart(2,'0');
+            }
+            if (paymentSeconds <= 0) {
+                clearInterval(paymentTimer);
+                // Fail — give to second highest
+                const pb = document.getElementById('payment-box');
+                if (pb) pb.style.display = 'none';
+                const winnerMsg = second
+                    ? `Sold to <b>${second.bidder}</b> at ₹${Number(second.amount).toLocaleString()} (payment not completed by top bidder).`
+                    : 'Auction closed. No valid payment received.';
+                finalSold(winnerMsg);
+            }
+        }, 1000);
+    }
+
+    function completePay() {
+        clearInterval(paymentTimer);
+        State.markSold(item.id);
+        const pb = document.getElementById('payment-box');
+        if (pb) pb.style.display = 'none';
+        finalSold(`Congratulations! You secured <b>${item.name}</b>. Payment completed successfully. 🎉`);
+        showToast('Payment Successful!', `You've won <b>${item.name}</b>!`, 6000);
+    }
+
+    function showSoldState() {
+        const top = State.topBid(item.id);
+        finalSold(top ? `Sold to <b>${top.bidder}</b> at ₹${Number(top.amount).toLocaleString()}.` : 'Auction closed with no bids.');
+    }
+
+    function finalSold(msg) {
+        const sb = document.getElementById('sold-banner');
+        const sm = document.getElementById('sold-msg');
+        if (sb) sb.style.display = 'block';
+        if (sm) sm.innerHTML = msg;
+        State.markSold(item.id);
+    }
+
+    /* ── Chart ── */
+    let chartCtx = null;
+    function addChartPoint(price) {
+        chartPoints.push({ t: Date.now(), price });
+    }
+
+    function updateChart() {
+        const canvas = document.getElementById('bid-chart');
+        if (!canvas) return;
+
+        const bids = State.getBids(item.id);
+        const allPoints = [{ price: item.basePrice, t: item.listedAt }, ...bids.map(b=>({price:b.amount, t:b.time}))];
+        if (allPoints.length < 2 && !bids.length) {
+            // Draw empty state
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 200;
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = '#555';
+            ctx.font = '13px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Waiting for bids...', canvas.width/2, 100);
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = 200;
+        const W = canvas.width, H = canvas.height;
+        const PAD = { t:20, r:20, b:30, l:70 };
+        const chartW = W - PAD.l - PAD.r;
+        const chartH = H - PAD.t - PAD.b;
+
+        const prices = allPoints.map(p=>p.price);
+        const minP = Math.min(...prices) * 0.95;
+        const maxP = Math.max(...prices) * 1.05;
+        
+        const numPoints = allPoints.length;
+        const toX = i => {
+            if (numPoints <= 1) return PAD.l + chartW / 2;
+            return PAD.l + (i / (numPoints - 1)) * chartW;
+        };
+        const toY = p => PAD.t + chartH - ((p-minP)/(maxP-minP)) * chartH;
+
+        ctx.clearRect(0,0,W,H);
+
+        // Grid
+        ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+        for (let i=0; i<=4; i++) {
+            const y = PAD.t + (chartH/4)*i;
+            ctx.beginPath(); ctx.moveTo(PAD.l,y); ctx.lineTo(W-PAD.r,y); ctx.stroke();
+            const val = maxP - (maxP-minP)/4*i;
+            ctx.fillStyle='#555'; ctx.font='10px Arial'; ctx.textAlign='right';
+            ctx.fillText('₹'+Math.round(val).toLocaleString(), PAD.l-5, y+4);
+        }
+
+        // Area fill
+        ctx.beginPath();
+        ctx.moveTo(toX(0), toY(prices[0]));
+        allPoints.forEach((p, i) => ctx.lineTo(toX(i), toY(p.price)));
+        ctx.lineTo(toX(numPoints - 1), H-PAD.b);
+        ctx.lineTo(toX(0), H-PAD.b);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(197,160,89,0.08)';
+        ctx.fill();
+
+        // Line
+        ctx.beginPath();
+        ctx.strokeStyle = '#c5a059'; ctx.lineWidth = 2;
+        allPoints.forEach((p, i) => {
+            if (i===0) ctx.moveTo(toX(i), toY(p.price));
+            else ctx.lineTo(toX(i), toY(p.price));
+        });
+        ctx.stroke();
+
+        // Dots
+        allPoints.forEach((p, i) => {
+            ctx.beginPath();
+            ctx.arc(toX(i), toY(p.price), 4, 0, Math.PI*2);
+            ctx.fillStyle='#c5a059'; ctx.fill();
+        });
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenBid — Select Role</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            background:
+                linear-gradient(rgba(0,0,0,0.78),rgba(0,0,0,0.78)),
+                url('https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&q=80')
+                center/cover no-repeat fixed;
+            min-height:100vh;
+        }
+        .page-wrapper {
+            min-height:100vh;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center;
+        }
+        .role-container {
+            display:flex; gap:36px;
+            flex-wrap:wrap; justify-content:center;
+            padding:20px;
+        }
+        .role-card {
+            background:var(--card-bg);
+            border:1px solid #333;
+            padding:44px 36px;
+            width:300px;
+            text-align:center;
+            transition:0.4s;
+            cursor:pointer;
+            border-radius:10px;
+        }
+        .role-card:hover {
+            border-color:var(--gold-primary);
+            transform:translateY(-12px);
+            box-shadow:0 16px 40px rgba(0,0,0,0.6);
+        }
+        .role-icon { font-size:3.2rem; margin-bottom:16px; }
+        .role-card h4 { font-size:1.5rem; color:var(--gold-primary); margin-bottom:14px; }
+        .role-card p { font-family:Arial,sans-serif; color:var(--text-dim); font-size:0.9rem; line-height:1.5; }
+        .role-btn {
+            margin-top:26px; width:100%;
+            padding:13px;
+            background:var(--gold-primary);
+            border:none; font-weight:bold;
+            cursor:pointer; text-transform:uppercase;
+            letter-spacing:1px; font-size:0.9rem;
+            transition:0.3s;
+        }
+        .role-btn:hover { background:var(--gold-hover); }
+    </style>
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+<div id="sidebar-placeholder"></div>
+
+<div class="page-wrapper">
+    <div class="section-heading">
+        <h2>CHOOSE YOUR PATH</h2>
+        <p>Select how you want to interact with OpenBid today.</p>
+    </div>
+
+    <div class="role-container">
+        <div class="role-card" onclick="location.href='seller.html'">
+            <div class="role-icon">🏷️</div>
+            <h4>Enter as Seller</h4>
+            <p>List your premium items, set base prices, and start your own live auction room.</p>
+            <button class="role-btn">Start Selling</button>
+        </div>
+
+        <div class="role-card" onclick="location.href='bidder.html'">
+            <div class="role-icon">🔨</div>
+            <h4>Enter as Bidder</h4>
+            <p>Join active auction rooms, place your bids in real-time, and win exclusive items.</p>
+            <button class="role-btn">Start Bidding</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="js/app.js"></script>
+<script>
+    if (!requireAuth()) {}
+    document.getElementById('nav-placeholder').innerHTML = renderTopNav();
+    checkPendingNotifications();
+</script>
+</body>
+</html>

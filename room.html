@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenBid — Auction Room</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background:var(--dark-bg); }
+
+        .room-header {
+            max-width:1100px; margin:0 auto;
+            padding:28px 20px 0;
+            display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+        }
+        .room-badge {
+            width:56px; height:56px;
+            border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.4rem; font-weight:bold;
+            border:2px solid;
+        }
+        .room-title-block h2 { font-size:1.8rem; color:var(--gold-primary); }
+        .room-title-block p { color:var(--text-dim); font-family:Arial,sans-serif; font-size:0.9rem; }
+
+        .back-btn {
+            margin-left:auto;
+            background:transparent; border:1px solid var(--border);
+            color:var(--text-dim); padding:10px 20px;
+            cursor:pointer; font-family:Arial,sans-serif; font-size:0.85rem;
+            transition:0.3s; border-radius:3px;
+        }
+        .back-btn:hover { border-color:var(--gold-primary); color:var(--gold-primary); }
+
+        .items-section {
+            max-width:1100px; margin:0 auto; padding:24px 20px 40px;
+        }
+        .items-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(240px,1fr));
+            gap:20px;
+        }
+        .item-card {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px; overflow:hidden;
+            cursor:pointer; transition:0.3s;
+        }
+        .item-card:hover { border-color:var(--gold-primary); transform:translateY(-5px); box-shadow:0 8px 24px rgba(0,0,0,0.5); }
+        .item-card img { width:100%; height:150px; object-fit:cover; }
+        .item-card .card-body { padding:14px; }
+        .c-token-badge {
+            display:inline-block;
+            background:var(--input-bg); border:1px solid var(--border);
+            color:var(--gold-primary); font-size:0.72rem;
+            padding:2px 8px; border-radius:3px;
+            font-family:Arial,sans-serif; margin-bottom:7px;
+        }
+        .c-name { font-size:0.95rem; font-weight:bold; margin-bottom:4px; }
+        .c-price { color:var(--gold-primary); font-size:0.88rem; font-family:Arial,sans-serif; margin-bottom:3px; }
+        .c-cat  { color:var(--text-dim); font-size:0.78rem; font-family:Arial,sans-serif; margin-bottom:8px; }
+
+        .notify-btn {
+            width:100%; padding:8px; margin-bottom:6px;
+            border:1px solid var(--border);
+            background:transparent; color:var(--text-dim);
+            font-size:0.78rem; cursor:pointer;
+            font-family:Arial,sans-serif; transition:0.2s; border-radius:2px;
+        }
+        .notify-btn:hover, .notify-btn.active { border-color:var(--gold-primary); color:var(--gold-primary); }
+        .bid-btn {
+            width:100%; padding:10px;
+            background:var(--gold-primary); border:none;
+            font-weight:bold; font-size:0.85rem;
+            cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;
+            transition:0.3s;
+        }
+        .bid-btn:hover { background:var(--gold-hover); }
+
+        .empty-room {
+            text-align:center; padding:60px 20px;
+            color:var(--text-dim); font-family:Arial,sans-serif;
+        }
+        .empty-room .icon { font-size:3rem; margin-bottom:12px; }
+    </style>
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+
+<div class="page-wrapper">
+    <div class="room-header" id="room-header"></div>
+    <div class="items-section">
+        <div class="items-grid" id="room-items"></div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="js/app.js"></script>
+<script>
+    if (!requireAuth()) {}
+    document.getElementById('nav-placeholder').innerHTML = renderTopNav();
+    checkPendingNotifications();
+
+    const params = new URLSearchParams(window.location.search);
+    const roomId = parseInt(params.get('room')) || 1;
+    const roomData = ROOMS[roomId - 1];
+
+    // Render header
+    document.getElementById('room-header').innerHTML = `
+        <div class="room-badge" style="border-color:${roomData.color};color:${roomData.color};">${roomId}</div>
+        <div class="room-title-block">
+            <h2>${roomData.label}</h2>
+            <p>${roomData.range}</p>
+        </div>
+        <button class="back-btn" onclick="history.back()">← Back to Rooms</button>
+    `;
+    document.title = `OpenBid — ${roomData.label}`;
+
+    function renderRoomItems() {
+        const items = State.getRoomItems(roomId).sort((a,b)=> a.token - b.token);
+        const user = State.currentUser;
+        const container = document.getElementById('room-items');
+
+        if (!items.length) {
+            container.innerHTML = `
+                <div class="empty-room" style="grid-column:1/-1;">
+                    <div class="icon">🏚️</div>
+                    <p>No items in this room yet. Sellers can list items with a base price in the range <b>${roomData.range}</b>.</p>
+                    <br><button class="bid-btn" style="max-width:200px;margin:0 auto;" onclick="location.href='bidder.html'">← Back to Rooms</button>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = items.map(i => {
+            const notified = State.isNotified(i.id, user.username);
+            const topBid   = State.topBid(i.id);
+            const dispPrice = topBid ? topBid.amount : i.basePrice;
+            return `
+            <div class="item-card">
+                <img src="${i.image}" alt="${i.name}" onerror="this.src='https://via.placeholder.com/240x150/141414/c5a059?text=Item'" onclick="goBid('${i.id}')">
+                <div class="card-body">
+                    <span class="c-token-badge">Token #${i.token}</span>
+                    <div class="c-name">${i.name}</div>
+                    <div class="c-price">₹${Number(dispPrice).toLocaleString()}
+                        ${topBid ? '<span style="font-size:0.7rem;color:var(--text-muted)">(current)</span>' : '<span style="font-size:0.7rem;color:var(--text-muted)">(base)</span>'}
+                    </div>
+                    <div class="c-cat">${i.category} · ${i.seller}</div>
+                    <button class="notify-btn ${notified?'active':''}" onclick="toggleNotify('${i.id}',this)">
+                        ${notified ? '🔔 Notify Me — ON' : '🔕 Notify Me'}
+                    </button>
+                    <button class="bid-btn" onclick="goBid('${i.id}')">BID NOW</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleNotify(itemId, btn) {
+        const user = State.currentUser.username;
+        if (State.isNotified(itemId, user)) return;
+        State.addNotify(itemId, user);
+        btn.textContent = '🔔 Notify Me — ON';
+        btn.classList.add('active');
+        showToast('Notification Set', 'You will be notified when this item is next up!');
+    }
+
+    function goBid(itemId) {
+        window.location.href = `bid.html?item=${itemId}`;
+    }
+
+    renderRoomItems();
+</script>
+</body>
+</html>

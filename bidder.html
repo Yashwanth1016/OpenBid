@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenBid — Bidder Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background:var(--dark-bg); }
+
+        /* ── Rooms Grid ── */
+        .rooms-section { max-width:1100px; margin:0 auto; padding:20px 20px 0; }
+        .rooms-grid {
+            display:grid;
+            grid-template-columns:repeat(3, 1fr);
+            gap:18px;
+            margin-bottom:36px;
+        }
+        .room-card {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:8px;
+            padding:22px 20px;
+            cursor:pointer;
+            transition:0.35s;
+            text-align:center;
+        }
+        .room-card:hover {
+            transform:translateY(-6px);
+            box-shadow:0 10px 30px rgba(0,0,0,0.5);
+        }
+        .room-num { font-size:2rem; font-weight:bold; margin-bottom:6px; }
+        .room-name { color:var(--text-dim); font-family:Arial,sans-serif; font-size:0.82rem; margin-bottom:8px; }
+        .room-count { font-family:Arial,sans-serif; font-size:0.78rem; color:var(--text-muted); }
+        .room-btn {
+            margin-top:14px; width:100%; padding:10px;
+            background:var(--gold-primary); border:none;
+            font-weight:bold; cursor:pointer;
+            text-transform:uppercase; letter-spacing:1px; font-size:0.82rem;
+            transition:0.3s;
+        }
+        .room-btn:hover { background:var(--gold-hover); }
+
+        /* ── All Items Section ── */
+        .all-items-section { max-width:1100px; margin:0 auto; padding:0 20px 40px; }
+        .filter-row {
+            display:flex; gap:14px; align-items:center;
+            margin-bottom:20px; flex-wrap:wrap;
+        }
+        .filter-row select, .filter-row input {
+            background:var(--input-bg);
+            border:1px solid var(--border);
+            color:#fff; padding:10px 14px;
+            font-family:Arial,sans-serif; font-size:0.88rem;
+            border-radius:3px; outline:none;
+        }
+        .filter-row select:focus, .filter-row input:focus { border-color:var(--gold-primary); }
+        .filter-row select option { background:var(--input-bg); }
+
+        .items-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
+            gap:18px;
+        }
+        .item-card {
+            background:var(--panel-bg);
+            border:1px solid var(--border);
+            border-radius:6px;
+            overflow:hidden;
+            cursor:pointer;
+            transition:0.3s;
+        }
+        .item-card:hover { border-color:var(--gold-primary); transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,0,0,0.5); }
+        .item-card img { width:100%; height:140px; object-fit:cover; }
+        .item-card .card-body { padding:12px; }
+        .item-card .c-name { font-size:0.92rem; font-weight:bold; margin-bottom:4px; }
+        .item-card .c-price { color:var(--gold-primary); font-size:0.88rem; font-family:Arial,sans-serif; }
+        .item-card .c-cat { color:var(--text-dim); font-size:0.78rem; font-family:Arial,sans-serif; margin-bottom:6px; }
+        .item-card .c-room { font-size:0.72rem; color:var(--text-muted); font-family:Arial,sans-serif; }
+        .item-card .c-token { font-size:0.72rem; color:var(--text-muted); font-family:Arial,sans-serif; }
+        .notify-btn {
+            width:100%; padding:8px; margin-top:8px;
+            border:1px solid var(--border);
+            background:transparent; color:var(--text-dim);
+            font-size:0.78rem; cursor:pointer;
+            font-family:Arial,sans-serif; letter-spacing:0.5px;
+            transition:0.2s;
+        }
+        .notify-btn:hover, .notify-btn.active { border-color:var(--gold-primary); color:var(--gold-primary); }
+        .bid-btn {
+            width:100%; padding:9px; margin-top:6px;
+            background:var(--gold-primary); border:none;
+            font-weight:bold; font-size:0.82rem;
+            cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;
+            transition:0.3s;
+        }
+        .bid-btn:hover { background:var(--gold-hover); }
+
+        @media(max-width:680px){
+            .rooms-grid { grid-template-columns:repeat(2,1fr); }
+        }
+        @media(max-width:440px){
+            .rooms-grid { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="nav-placeholder"></div>
+
+<div class="page-wrapper">
+    <div class="section-heading" style="padding-top:30px;">
+        <h2>AUCTION ROOMS</h2>
+        <p>Select a room to browse items by price range, or explore all items below.</p>
+    </div>
+
+    <!-- Rooms -->
+    <div class="rooms-section">
+        <div class="rooms-grid" id="rooms-grid"></div>
+    </div>
+
+    <!-- All Items -->
+    <div class="all-items-section">
+        <div class="section-heading" style="text-align:left;padding:0 0 20px;">
+            <h2 style="font-size:1.5rem;">ALL AUCTION ITEMS</h2>
+        </div>
+        <div class="filter-row">
+            <select id="filter-cat" onchange="renderItems()">
+                <option value="">All Categories</option>
+                <option>Electronics</option>
+                <option>Home Appliances</option>
+                <option>Fashion</option>
+                <option>Mobiles</option>
+                <option>Sports</option>
+                <option>Books</option>
+            </select>
+            <select id="sort-price" onchange="renderItems()">
+                <option value="">Sort by Price</option>
+                <option value="asc">Price: Low to High</option>
+                <option value="desc">Price: High to Low</option>
+            </select>
+            <input type="text" id="search-item" placeholder="🔍 Search items..." oninput="renderItems()" style="flex:1;min-width:160px;">
+        </div>
+        <div class="items-grid" id="all-items"></div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="js/app.js"></script>
+<script>
+    if (!requireAuth()) {}
+    document.getElementById('nav-placeholder').innerHTML = renderTopNav();
+    checkPendingNotifications();
+
+    function renderRooms() {
+        const grid = document.getElementById('rooms-grid');
+        grid.innerHTML = ROOMS.map(r => {
+            const count = State.getRoomItems(r.id).length;
+            return `
+            <div class="room-card" style="border-top:3px solid ${r.color}" onclick="goRoom(${r.id})">
+                <div class="room-num" style="color:${r.color}">${r.label}</div>
+                <div class="room-name">${r.range}</div>
+                <div class="room-count">${count} item${count!==1?'s':''} available</div>
+                <button class="room-btn" onclick="event.stopPropagation();goRoom(${r.id})">Enter Room</button>
+            </div>`;
+        }).join('');
+    }
+
+    function goRoom(roomId) {
+        window.location.href = `room.html?room=${roomId}`;
+    }
+
+    function renderItems() {
+        const catFilter = document.getElementById('filter-cat').value;
+        const sortMode  = document.getElementById('sort-price').value;
+        const search    = document.getElementById('search-item').value.toLowerCase();
+        const user = State.currentUser;
+
+        let items = State.items.filter(i => i.status !== 'sold');
+        if (catFilter) items = items.filter(i => i.category === catFilter);
+        if (search) items = items.filter(i => i.name.toLowerCase().includes(search) || i.description.toLowerCase().includes(search));
+
+        if (sortMode) {
+            fetch('http://localhost:5000/api/items/sort', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: items, sortMode: sortMode })
+            })
+            .then(res => res.json())
+            .then(data => {
+                renderGrid(data.items, user);
+            })
+            .catch(err => {
+                console.error("Sorting backend failed:", err);
+                // Fallback local sort
+                if (sortMode === 'asc') items.sort((a,b)=>a.basePrice-b.basePrice);
+                else if (sortMode === 'desc') items.sort((a,b)=>b.basePrice-a.basePrice);
+                renderGrid(items, user);
+            });
+        } else {
+            renderGrid(items, user);
+        }
+    }
+
+    function renderGrid(itemsToRender, user) {
+        const grid = document.getElementById('all-items');
+        if (!itemsToRender.length) {
+            grid.innerHTML = '<p style="color:var(--text-muted);font-family:Arial,sans-serif;">No items found.</p>';
+            return;
+        }
+        grid.innerHTML = itemsToRender.map(i => {
+            const notified = State.isNotified(i.id, user.username);
+            const topBid   = State.topBid(i.id);
+            const dispPrice = topBid ? topBid.amount : i.basePrice;
+            return `
+            <div class="item-card">
+                <img src="${i.image}" alt="${i.name}" onerror="this.src='https://via.placeholder.com/220x140/141414/c5a059?text=Item'" onclick="goBid('${i.id}')">
+                <div class="card-body">
+                    <div class="c-cat">${i.category} &nbsp;·&nbsp; Room ${i.room}</div>
+                    <div class="c-name">${i.name}</div>
+                    <div class="c-price">₹${Number(dispPrice).toLocaleString()} ${topBid ? '<span style="font-size:0.7rem;color:var(--text-muted)">(current bid)</span>' : '<span style="font-size:0.7rem;color:var(--text-muted)">(base)</span>'}</div>
+                    <div class="c-token">Token #${i.token}</div>
+                    <button class="notify-btn ${notified?'active':''}" onclick="toggleNotify('${i.id}',this)">
+                        ${notified ? '🔔 Notified' : '🔕 Notify Me'}
+                    </button>
+                    <button class="bid-btn" onclick="goBid('${i.id}')">BID NOW</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleNotify(itemId, btn) {
+        const user = State.currentUser.username;
+        if (State.isNotified(itemId, user)) return;
+        State.addNotify(itemId, user);
+        btn.textContent = '🔔 Notified';
+        btn.classList.add('active');
+        showToast('Notification Set', 'You will be notified when this item is next up!');
+    }
+
+    function goBid(itemId) {
+        window.location.href = `bid.html?item=${itemId}`;
+    }
+
+    renderRooms();
+    renderItems();
+</script>
+</body>
+</html>
