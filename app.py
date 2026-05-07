@@ -213,9 +213,21 @@ def get_notifications(item_id):
 @app.route('/api/bid', methods=['POST'])
 def place_bid():
     data = request.json
+    item_id = data.get('itemId')
+    new_amount = float(data.get('amount'))
+    
+    # Check if bid is valid (must be higher than current top bid)
+    top_bid = Bid.query.filter_by(item_id=item_id).order_by(Bid.amount.desc()).first()
+    if top_bid and new_amount <= top_bid.amount:
+        return jsonify({"error": f"Bid must be higher than ₹{int(top_bid.amount)}"}), 400
+        
+    item = Item.query.get(item_id)
+    if item and new_amount < item.base_price:
+        return jsonify({"error": f"Bid must be at least ₹{int(item.base_price)}"}), 400
+
     new_bid = Bid(
-        item_id=data.get('itemId'),
-        amount=float(data.get('amount')),
+        item_id=item_id,
+        amount=new_amount,
         bidder=data.get('bidder'),
         status="queued"
     )
