@@ -41,6 +41,8 @@ class Item(db.Model):
     room = db.Column(db.Integer, nullable=False)
     token = db.Column(db.Integer, nullable=False)
     category = db.Column(db.String(100))
+    image = db.Column(db.Text)
+    description = db.Column(db.Text)
     status = db.Column(db.String(50), default="active") # active or sold
     created_at = db.Column(db.Float, default=lambda: time.time() * 1000)
 
@@ -60,6 +62,18 @@ class Notification(db.Model):
 # Create tables
 with app.app_context():
     db.create_all()
+    # Safely add missing columns to existing table
+    try:
+        db.session.execute(db.text('ALTER TABLE item ADD COLUMN image TEXT'))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    
+    try:
+        db.session.execute(db.text('ALTER TABLE item ADD COLUMN description TEXT'))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 # ─── Frontend Routes ──────────────────────────────────────────
 
@@ -138,6 +152,8 @@ def handle_items():
             room=int(data.get('room')),
             token=int(data.get('token')),
             category=data.get('category', ''),
+            image=data.get('image', ''),
+            description=data.get('description', ''),
             status='active'
         )
         db.session.add(new_item)
@@ -156,6 +172,8 @@ def handle_items():
                 "room": item.room,
                 "token": item.token,
                 "category": item.category,
+                "image": item.image,
+                "description": item.description,
                 "status": item.status
             })
         return jsonify({"items": result}), 200

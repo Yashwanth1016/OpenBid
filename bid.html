@@ -199,7 +199,7 @@
 
     const params = new URLSearchParams(window.location.search);
     const itemId = params.get('item');
-    const item = State.getItem(itemId);
+    let item = null;
 
     /* ─────────────────────────────── */
     let inactivityTimer = null;
@@ -210,12 +210,15 @@
     let bidCount = 0;
     let chartPoints = [];
 
-    if (!item) {
-        document.getElementById('bid-layout').innerHTML = '<p style="color:var(--danger);font-family:Arial,sans-serif;padding:40px;">Item not found. <a href="bidder.html" style="color:var(--gold-primary)">← Back to rooms</a></p>';
-    } else {
-        document.title = `OpenBid — ${item.name}`;
-        State.loadItems().then(() => initBidPage());
-    }
+    State.loadItems().then(() => {
+        item = State.getItem(itemId);
+        if (!item) {
+            document.getElementById('bid-layout').innerHTML = '<p style="color:var(--danger);font-family:Arial,sans-serif;padding:40px;">Item not found. <a href="bidder.html" style="color:var(--gold-primary)">← Back to rooms</a></p>';
+        } else {
+            document.title = `OpenBid — ${item.name}`;
+            initBidPage();
+        }
+    });
 
     function currentBidAmount() {
         const top = State.topBid(item.id);
