@@ -265,6 +265,7 @@
         const roomData = ROOMS[item.room - 1];
         const top = currentBids[0];
         const dispPrice = top ? top.amount : item.basePrice;
+        const isSeller = State.currentUser && State.currentUser.username === item.seller;
 
         document.getElementById('bid-layout').innerHTML = `
         <!-- LEFT -->
@@ -301,19 +302,22 @@
             <!-- Bid Panel -->
             <div class="bid-panel" id="bid-panel">
                 <h3>PLACE YOUR BID</h3>
-                <div class="bid-methods">
-                    <!-- Manual -->
-                    <div>
-                        <div style="font-family:Arial,sans-serif;font-size:0.8rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;">Custom Amount</div>
-                        <div class="manual-bid">
-                            <input type="number" id="custom-bid" placeholder="Enter amount (₹)" min="1">
-                            <button onclick="doManualBid()">BID</button>
+                <div style="position:relative;">
+                    ${isSeller ? `<div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:10;cursor:not-allowed;" title="Seller can't able to bid"></div>` : ''}
+                    <div class="bid-methods" style="${isSeller ? 'opacity:0.5;' : ''}">
+                        <!-- Manual -->
+                        <div>
+                            <div style="font-family:Arial,sans-serif;font-size:0.8rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;">Custom Amount</div>
+                            <div class="manual-bid">
+                                <input type="number" id="custom-bid" placeholder="Enter amount (₹)" min="1" ${isSeller ? 'tabindex="-1"' : ''}>
+                                <button onclick="doManualBid()" ${isSeller ? 'tabindex="-1"' : ''}>BID</button>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Quick Bids -->
-                    <div>
-                        <div style="font-family:Arial,sans-serif;font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;">Quick Bid Buttons</div>
-                        <div class="quick-bids" id="quick-bids-container"></div>
+                        <!-- Quick Bids -->
+                        <div>
+                            <div style="font-family:Arial,sans-serif;font-size:0.8rem;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;">Quick Bid Buttons</div>
+                            <div class="quick-bids" id="quick-bids-container"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -391,6 +395,10 @@
 
     function doManualBid() {
         if (isSold) return;
+        if (State.currentUser && State.currentUser.username === item.seller) {
+            showToast('Action Denied', "Sellers cannot bid on their own items.");
+            return;
+        }
         const val = Number(document.getElementById('custom-bid').value);
         const minBid = currentBidAmount() + 1;
         if (!val || val < minBid) {
@@ -402,6 +410,10 @@
 
     function doQuickBid(amount) {
         if (isSold) return;
+        if (State.currentUser && State.currentUser.username === item.seller) {
+            showToast('Action Denied', "Sellers cannot bid on their own items.");
+            return;
+        }
         submitBid(amount);
     }
 
