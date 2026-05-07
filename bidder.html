@@ -248,6 +248,12 @@
     State.loadItems().then(() => {
         renderRooms();
         renderItems();
+        setInterval(() => {
+            State.loadItems().then(() => {
+                renderRooms();
+                renderItems();
+            });
+        }, 5000);
     });
 </script>
 </body>

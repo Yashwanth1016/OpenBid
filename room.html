@@ -175,7 +175,12 @@
         window.location.href = `bid.html?item=${itemId}`;
     }
 
-    State.loadItems().then(() => renderRoomItems());
+    State.loadItems().then(() => {
+        renderRoomItems();
+        setInterval(() => {
+            State.loadItems().then(() => renderRoomItems());
+        }, 5000);
+    });
 </script>
 </body>
 </html>
